@@ -1,7 +1,5 @@
 # mongoDB
-
 mongoDB server from the official docker image. This container adds an additional layer where a ssh server is enabled and an user *student* with password *student* is created.
-
 
 Below, the commands used to run this image. Please, see the official [site](https://store.docker.com/images/mongo) for all possible ways to run this image. 
  
