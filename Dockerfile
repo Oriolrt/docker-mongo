@@ -17,5 +17,6 @@ RUN mkdir -p /u02/mongo/db/
 EXPOSE 27017
 EXPOSE 22
 
+
 CMD ./entrypoint.sh -D && bash
 
