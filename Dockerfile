@@ -1,4 +1,4 @@
-FROM mongo  
+FROM mongo:7.0  
 MAINTAINER Oriol Ramos Terrades <oriol.ramos@uab.cat>
 
 RUN apt-get update && \
@@ -17,6 +17,7 @@ RUN mkdir -p /u02/mongo/db/
 EXPOSE 27017
 EXPOSE 22
 
+VOLUME /home/student
 
-CMD ./entrypoint.sh -D && bash
+ENTRYPOINT ./entrypoint.sh -D && bash
 
