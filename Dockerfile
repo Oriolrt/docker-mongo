@@ -12,7 +12,6 @@ ADD entrypoint.sh /entrypoint.sh
 COPY createUser.sh /root/createUser.sh
 RUN chmod +x /root/createUser.sh
 RUN /root/createUser.sh && rm /root/createUser.sh
-RUN mkdir -p /u02/mongo/db/
 
 EXPOSE 27017
 EXPOSE 22
