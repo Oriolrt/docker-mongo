@@ -17,6 +17,23 @@ Run this, if you want the database to be connected remotely:
 docker run -dti -p 55117:27017 -p 55122:22  --name mongo-1 oriolrt/mongo
 ```
 
+And run this if you want to mount a volume with proper privileges:
+```
+mkdir -p $HOME/docker_volumes/mongo/scripts;
+mkdir -p $HOME/docker_volumes/mongo/data;
+mkdir -p $HOME/docker_volumes/mongo/configdb;
+docker run -dti \
+	-e HOST_UID=$(id -u $USER) \
+	-e HOST_GID=$(id -g $USER) \   
+	-p 55117:27017 \
+	-p 55122:22 \
+	-v $HOME/docker_volumes/mongo/scripts:/home/student/scripts \
+	-v $HOME/docker_volumes/mongo/data:/data/db \
+	-v $HOME/docker_volumes/mongo/configdb:/data/configdb \
+	--name mongo --hostname mongo \
+oriolrt/mongo
+```
+
 ## Remote connection
 
 Write on a terminal on a host terminal the following command:
