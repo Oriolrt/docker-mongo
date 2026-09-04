@@ -1,5 +1,5 @@
-FROM mongo:7.0  
-MAINTAINER Oriol Ramos Terrades <oriol.ramos@uab.cat>
+FROM mongo:7.0
+LABEL maintainer="Oriol Ramos Terrades <oriol.ramos@uab.cat>"
 
 RUN apt-get update && \
   apt-get install -y apg \
