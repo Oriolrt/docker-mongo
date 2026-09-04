@@ -24,7 +24,7 @@ mkdir -p $HOME/docker_volumes/mongo/data;
 mkdir -p $HOME/docker_volumes/mongo/configdb;
 docker run -dti \
 	-e HOST_UID=$(id -u $USER) \
-	-e HOST_GID=$(id -g $USER) \   
+	-e HOST_GID=$(id -g $USER) \
 	-p 55117:27017 \
 	-p 55122:22 \
 	-v $HOME/docker_volumes/mongo/scripts:/home/student/scripts \
@@ -42,6 +42,8 @@ ssh -p 55122 student@localhost
 ```
 
 Replace *localhost* by the IP or a hostname for a remote connection. Be sure that the specified port is opened and the IP reachable.
+
+If you expose the SSH port outside your machine, override the default password by setting `-e STUDENT_PASSWORD=<your-password>` when running the container.
 
 
 
