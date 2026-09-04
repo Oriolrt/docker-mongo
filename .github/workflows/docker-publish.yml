@@ -1,0 +1,129 @@
+name: Build, test and push to Docker Hub
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: oriolrt/mongo
+  TEST_TAG: mongo:ci-test
+  TEST_UID: "1500"
+  TEST_GID: "1501"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (local only, for testing)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ env.TEST_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run container
+        run: |
+          docker run -d --name ci-mongo \
+            -e HOST_UID=${{ env.TEST_UID }} \
+            -e HOST_GID=${{ env.TEST_GID }} \
+            -e STUDENT_PASSWORD=ci-test-password \
+            ${{ env.TEST_TAG }}
+
+      - name: Wait for sshd and mongod to start
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if docker exec ci-mongo pgrep -x sshd >/dev/null 2>&1 && \
+               docker exec ci-mongo pgrep -x mongod >/dev/null 2>&1; then
+              echo "sshd and mongod are running"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::sshd/mongod did not start within 150s"
+          docker logs ci-mongo
+          exit 1
+
+      - name: Check mongod answers and runs as the student user
+        run: |
+          set -euo pipefail
+          docker exec ci-mongo mongosh --quiet --eval "db.runCommand({ping:1})"
+          owner=$(docker exec ci-mongo ps -o user= -C mongod)
+          if [ "$(echo "$owner" | tr -d '[:space:]')" != "student" ]; then
+            echo "::error::mongod is not running as student (got: $owner)"
+            exit 1
+          fi
+
+      - name: Check HOST_UID/HOST_GID were applied to student and /data/db
+        run: |
+          set -euo pipefail
+          docker exec ci-mongo sh -c 'id -u student' | grep -qx "${{ env.TEST_UID }}"
+          docker exec ci-mongo sh -c 'id -g student' | grep -qx "${{ env.TEST_GID }}"
+          docker exec ci-mongo sh -c "stat -c '%u:%g' /data/db" | grep -qx "${{ env.TEST_UID }}:${{ env.TEST_GID }}"
+
+      - name: Check the system mongodb group was not corrupted
+        run: |
+          set -euo pipefail
+          docker exec ci-mongo getent group mongodb | cut -d: -f3 | grep -qx "999"
+
+      - name: Restart container and check provisioning is idempotent
+        run: |
+          set -euo pipefail
+          docker restart ci-mongo
+          for i in $(seq 1 30); do
+            if docker exec ci-mongo pgrep -x sshd >/dev/null 2>&1 && \
+               docker exec ci-mongo pgrep -x mongod >/dev/null 2>&1; then
+              break
+            fi
+            sleep 5
+          done
+
+          docker exec ci-mongo sh -c 'id -u student' | grep -qx "${{ env.TEST_UID }}"
+          docker exec ci-mongo getent group mongodb | cut -d: -f3 | grep -qx "999"
+          docker exec ci-mongo mongosh --quiet --eval "db.runCommand({ping:1})"
+
+      - name: Clean up test container
+        if: always()
+        run: docker rm -f ci-mongo || true
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine image tag
+        id: tag
+        run: echo "value=${{ github.event.release.tag_name || 'manual' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.value }}
+            ${{ env.IMAGE_NAME }}:latest
