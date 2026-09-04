@@ -23,8 +23,8 @@ RUN /root/createUser.sh
 
 RUN test  -d /data/configdb ||   mkdir -p /data/configdb
 RUN test -d /home/student/scripts ||  mkdir -p /home/student/scripts 
-RUN chown -R student:mongodb /data/db
-RUN chown -R student:mongodb /data/configdb
+RUN chown -R student:mongodb /data/db && chmod -R g+w /data/db
+RUN chown -R student:mongodb /data/configdb && chmod -R g+w /data/configdb
 
 
 # Prepara carpetes necessàries per SSH
@@ -32,7 +32,7 @@ RUN mkdir /var/run/sshd
 
 # Punt de muntatge per compartir dades amb l'host
 RUN mkdir -p /home/student/scripts
-RUN chown -R student:mongodb /home/student/scripts
+RUN chown -R student:mongodb /home/student/scripts && chmod -R g+w /home/student/scripts
 
 EXPOSE 27017
 EXPOSE 22
