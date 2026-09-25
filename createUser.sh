@@ -32,11 +32,22 @@ if egrep "^${username}:" /etc/passwd > /dev/null 2>&1; then
   usermod -u "${USER_ID}" -g "${GROUP_ID}" "${username}"
 
   # Realinea la propietat dels fitxers de l'usuari només a les carpetes
-  # on pot tenir contingut (evita un find / complet a cada arrencada)
+  # on pot tenir contingut (evita un find / complet a cada arrencada).
+  #
+  # "-exec ... +" i NO "-exec ... \;": amb "\;" find engega un procés chown/chgrp NOU PER
+  # CADA FITXER. Amb /data (dades reals de Mongo) i /home/student (que inclou el JupyterLab
+  # instal·lat amb --user, desenes de milers de fitxers), això són desenes de milers de
+  # forks per contenidor -- i multiplicat pels contenidors que arrenquen alhora en un node,
+  # trigava més dels 600s que setup.sh (check_ssh_owner_and_setup) espera que /home/student
+  # passi a ser propietat de HOST_UID, deixant el SSH sense contrasenya sense configurar per
+  # a tots els grups. Amb "+" find agrupa tots els fitxers en poques crides.
+  echo "Realineant propietat de fitxers (${OLD_UID}:${OLD_GID} -> ${USER_ID}:${GROUP_ID})..."
   for dir in /data /home/student; do
-    [ -d "$dir" ] && find "$dir" -user "${OLD_UID}" -exec chown -h "${username}" {} \; 2>/dev/null
-    [ -d "$dir" ] && find "$dir" -group "${OLD_GID}" -exec chgrp -h "${groupname}" {} \; 2>/dev/null
+    [ -d "$dir" ] || continue
+    find "$dir" -user "${OLD_UID}" -exec chown -h "${username}" {} + 2>/dev/null
+    find "$dir" -group "${OLD_GID}" -exec chgrp -h "${groupname}" {} + 2>/dev/null
   done
+  echo "Propietat realineada."
 
   echo "$username exists! changing password."
   echo "${username}:${password}" | chpasswd
